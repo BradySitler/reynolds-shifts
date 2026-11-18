@@ -38,12 +38,12 @@ export function canManageCourse(user: User, courseId: number | null): boolean {
  * Who gets emailed about a request in this department: its assistant pro.
  * If none is set (or they're inactive), the course's head pros, then admins.
  */
-export async function approverEmails(departmentId: number | null): Promise<string[]> {
+export async function approverEmails(departmentId: number | null): Promise<(string | null)[]> {
   if (departmentId != null) {
     const dept = await db.query.departments.findFirst({ where: eq(schema.departments.id, departmentId) });
     if (dept?.approverId) {
       const a = await db.query.users.findFirst({ where: eq(schema.users.id, dept.approverId) });
-      if (a?.active) return [a.email];
+      if (a?.active && a.email) return [a.email];
     }
     if (dept) {
       const heads = await db

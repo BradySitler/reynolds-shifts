@@ -1,9 +1,10 @@
 import "server-only";
 
-export type Email = { to: string | string[]; subject: string; text: string };
+export type Email = { to: string | null | undefined | (string | null)[]; subject: string; text: string };
 
 export function appUrl(path = "/"): string {
-  const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const base = (process.env.APP_URL || (vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000")).replace(/\/$/, "");
   return base + path;
 }
 
@@ -13,7 +14,7 @@ export function appUrl(path = "/"): string {
  * Never throws: a failed notification should not undo a request.
  */
 export async function sendEmail(email: Email): Promise<void> {
-  const to = (Array.isArray(email.to) ? email.to : [email.to]).filter(Boolean);
+  const to = (Array.isArray(email.to) ? email.to : [email.to]).filter((x): x is string => !!x);
   if (to.length === 0) return;
   const key = process.env.RESEND_API_KEY;
   if (!key) {

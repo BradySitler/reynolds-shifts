@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Every page here is per-person and signed-in, so pages render on each request
+  // instead of using Cache Components' prerendered shells.
+  cacheComponents: false,
+  serverExternalPackages: ["exceljs"],
   turbopack: {
     rules: {
       "*.css": {
