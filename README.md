@@ -53,15 +53,16 @@ Without `RESEND_API_KEY`, emails print to the terminal and the login page shows 
 1. Import the repo into Vercel.
 2. Add a Neon Postgres database from the Vercel Marketplace (it sets `DATABASE_URL`).
 3. Set environment variables: `APP_URL` (the site's URL), `RESEND_API_KEY`, and `EMAIL_FROM` (an address on a domain verified in Resend, such as `Reynolds Shifts <shifts@yourdomain.com>`).
-4. Run migrations against the database: `DATABASE_URL=... npm run db:migrate`.
-5. Create the first admin: `DATABASE_URL=... npm run create-admin -- you@example.com "Your Name"`. Then sign in, add the course, and upload the roster.
+4. Set the project's build command to `npm run db:migrate && npm run build` so each deploy brings the database up to date.
+5. Set `ADMIN_EMAILS` to your email (comma-separated for more than one). The first time that address signs in, it becomes an admin. Then add the course and upload the schedule. (`npm run create-admin` does the same from a terminal.)
 
 ## Environment variables
 
 | Name | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Postgres connection string |
-| `APP_URL` | Public URL, used in email links |
+| `APP_URL` | Public URL, used in email links. Defaults to the Vercel production URL |
+| `ADMIN_EMAILS` | Addresses that become admins on their first sign-in |
 | `RESEND_API_KEY` | Sends email. Without it, emails are logged instead |
 | `EMAIL_FROM` | Sender address (domain must be verified in Resend) |
 | `APP_TIME_ZONE` | Defaults to `America/New_York` |

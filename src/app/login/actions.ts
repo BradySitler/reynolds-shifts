@@ -10,7 +10,17 @@ export async function requestLoginLink(formData: FormData) {
   const email = normalizeEmail(String(formData.get("email") || ""));
   if (!email.includes("@")) redirect("/login?error=Please+enter+your+email+address.");
 
-  const user = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
+  let user = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
+  // First sign-in for an address listed in ADMIN_EMAILS creates their admin account,
+  // so a brand-new site can be set up without running any commands.
+  const admins = (process.env.ADMIN_EMAILS ?? "").split(",").map(normalizeEmail).filter(Boolean);
+  if (!user && admins.includes(email)) {
+    [user] = await db
+      .insert(schema.users)
+      .values({ email, name: email.split("@")[0], role: "admin" })
+      .onConflictDoNothing()
+      .returning();
+  }
   let devLink = "";
   if (user?.active) {
     const token = await createLoginToken(user.id);

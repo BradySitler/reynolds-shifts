@@ -3,7 +3,8 @@ import "server-only";
 export type Email = { to: string | null | undefined | (string | null)[]; subject: string; text: string };
 
 export function appUrl(path = "/"): string {
-  const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const base = (process.env.APP_URL || (vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000")).replace(/\/$/, "");
   return base + path;
 }
 
