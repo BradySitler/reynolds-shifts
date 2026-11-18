@@ -27,8 +27,10 @@ test("parseCsv handles quotes and CRLF", () => {
 });
 
 test("week math", () => {
-  assert.equal(weekStart("2026-11-18"), "2026-11-16"); // Wed -> Mon
-  assert.equal(weekStart("2026-11-22"), "2026-11-16"); // Sun -> Mon
+  // Schedule weeks run Thursday to Wednesday.
+  assert.equal(weekStart("2026-11-18"), "2026-11-12"); // Wed -> previous Thu
+  assert.equal(weekStart("2026-11-19"), "2026-11-19"); // Thu
+  assert.equal(weekStart("2026-11-22"), "2026-11-19"); // Sun -> Thu
   assert.equal(addDays("2026-12-31", 1), "2027-01-01");
   assert.equal(formatShiftTime("06:30:00", "14:30:00"), "6:30 AM – 2:30 PM");
 });

@@ -41,7 +41,7 @@ export async function requestTimeOff(formData: FormData) {
     .returning();
 
   const scheduled = await db
-    .select({ date: shifts.date, startTime: shifts.startTime, endTime: shifts.endTime })
+    .select({ date: shifts.date, startTime: shifts.startTime, endTime: shifts.endTime, label: shifts.label })
     .from(shifts)
     .where(and(eq(shifts.userId, user.id), gte(shifts.date, startDate), lte(shifts.date, endDate)));
 
@@ -52,7 +52,7 @@ export async function requestTimeOff(formData: FormData) {
       `${user.name} asked for time off ${formatDateRange(startDate, endDate)}.\n` +
       (reason ? `Reason: ${reason}\n` : "") +
       (scheduled.length
-        ? `\nThey're scheduled during that time:\n${scheduled.map((s) => `  • ${formatDate(s.date)} ${formatShiftTime(s.startTime, s.endTime)}`).join("\n")}\n`
+        ? `\nThey're scheduled during that time:\n${scheduled.map((s) => `  • ${formatDate(s.date)} ${formatShiftTime(s.startTime, s.endTime, s.label)}`).join("\n")}\n`
         : "\nThey have no shifts scheduled during that time.\n") +
       `\nApprove or deny: ${appUrl("/approvals")}\n\n(Request #${req.id})`,
   });
@@ -138,8 +138,8 @@ export async function requestSwap(formData: FormData) {
     to: coworker.email,
     subject: `${user.name} asked you to ${trade ? "trade" : "cover"} a shift`,
     text:
-      `Hi ${first(coworker.name)},\n\n${user.name} asked if you can work their shift on ${formatDate(shift.date)}, ${formatShiftTime(shift.startTime, shift.endTime)}.\n` +
-      (trade ? `In return they'd work your shift on ${formatDate(trade.date)}, ${formatShiftTime(trade.startTime, trade.endTime)}.\n` : "") +
+      `Hi ${first(coworker.name)},\n\n${user.name} asked if you can work their shift on ${formatDate(shift.date)}, ${formatShiftTime(shift.startTime, shift.endTime, shift.label)}.\n` +
+      (trade ? `In return they'd work your shift on ${formatDate(trade.date)}, ${formatShiftTime(trade.startTime, trade.endTime, trade.label)}.\n` : "") +
       (message ? `\nMessage: ${message}\n` : "") +
       `\nAccept or decline: ${appUrl("/")}\n\nIf you accept, it still needs your assistant pro's approval.`,
   });
@@ -162,7 +162,7 @@ export async function respondSwap(formData: FormData) {
 
   const shift = await db.query.shifts.findFirst({ where: eq(shifts.id, swap.shiftId) });
   const requester = await db.query.users.findFirst({ where: eq(users.id, swap.requesterId) });
-  const when = shift ? `${formatDate(shift.date)}, ${formatShiftTime(shift.startTime, shift.endTime)}` : "your shift";
+  const when = shift ? `${formatDate(shift.date)}, ${formatShiftTime(shift.startTime, shift.endTime, shift.label)}` : "your shift";
 
   if (requester) {
     await sendEmail({
@@ -260,7 +260,7 @@ export async function decideSwap(formData: FormData) {
   const people = await db.select().from(users).where(inArray(users.id, [swap.requesterId, swap.coworkerId]));
   const requester = people.find((p) => p.id === swap.requesterId);
   const coworker = people.find((p) => p.id === swap.coworkerId);
-  const when = `${formatDate(shift.date)}, ${formatShiftTime(shift.startTime, shift.endTime)}`;
+  const when = `${formatDate(shift.date)}, ${formatShiftTime(shift.startTime, shift.endTime, shift.label)}`;
   const verdict = approve
     ? `${user.name} approved the swap. ${coworker?.name} now works ${when}.`
     : `${user.name} denied the swap for ${when}. ${requester?.name} is still scheduled.`;

@@ -27,11 +27,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
   const [{ timeOff, swaps }, recent] = await Promise.all([pendingApprovals(user), recentDecisions(user)]);
 
   // Shifts each time-off requester is scheduled for during the dates they asked off.
-  const conflicts = new Map<number, { date: string; startTime: string; endTime: string | null }[]>();
+  const conflicts = new Map<number, { date: string; startTime: string | null; endTime: string | null; label: string | null }[]>();
   if (timeOff.length) {
     const s = schema.shifts;
     const rows = await db
-      .select({ userId: s.userId, date: s.date, startTime: s.startTime, endTime: s.endTime })
+      .select({ userId: s.userId, date: s.date, startTime: s.startTime, endTime: s.endTime, label: s.label })
       .from(s)
       .where(
         and(
@@ -72,7 +72,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
                   {r.reason && <p className="text-sm italic text-stone-600">&ldquo;{r.reason}&rdquo;</p>}
                   {c.length > 0 ? (
                     <p className="text-sm text-amber-800">
-                      ⚠️ Scheduled: {c.map((x) => `${formatDate(x.date)} ${formatShiftTime(x.startTime, x.endTime)}`).join("; ")}
+                      ⚠️ Scheduled: {c.map((x) => `${formatDate(x.date)} ${formatShiftTime(x.startTime, x.endTime, x.label)}`).join("; ")}
                     </p>
                   ) : (
                     <p className="muted">Not scheduled on those days.</p>

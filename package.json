@@ -11,7 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "create-admin": "tsx scripts/create-admin.ts",
-    "test": "tsx --test src/lib/*.test.ts"
+    "test": "tsx --test src/lib/spreadsheet.test.ts src/lib/schedule-grid.test.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",

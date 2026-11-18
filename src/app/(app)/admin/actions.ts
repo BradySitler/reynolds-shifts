@@ -1,15 +1,16 @@
 "use server";
 
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
 import type { Role, User } from "@/db/schema";
 import { normalizeEmail, requireAdmin } from "@/lib/auth";
 import { canManageCourse } from "@/lib/permissions";
 import { done, fail } from "@/lib/flash";
-import { parseDate, parseTime, pick, readSheet } from "@/lib/spreadsheet";
+import { gridToRows, parseDate, parseTime, pick, readSheet, readTabs, type Tab } from "@/lib/spreadsheet";
+import { looksLikeGrid, parseScheduleGrid } from "@/lib/schedule-grid";
 import { appUrl, sendEmail } from "@/lib/email";
-import { formatDate, formatShiftTime } from "@/lib/dates";
+import { addDays, formatDate, formatShiftTime, today, weekStart } from "@/lib/dates";
 
 const { courses, departments, users, shifts } = schema;
 const ROLES: Role[] = ["employee", "assistant_pro", "head_pro", "admin"];
@@ -70,14 +71,14 @@ export async function saveEmployee(formData: FormData) {
   const id = int(formData.get("id"));
   const back = id ? `/admin/employees?edit=${id}` : "/admin/employees";
   const name = text(formData.get("name"));
-  const email = normalizeEmail(text(formData.get("email")));
+  const email = normalizeEmail(text(formData.get("email"))) || null;
   const phone = text(formData.get("phone"), 40) || null;
   const role = text(formData.get("role")) as Role;
   const departmentId = int(formData.get("departmentId")) || null;
   const active = id ? formData.get("active") === "on" : true;
 
   if (!name) fail(back, "Enter a name.");
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) fail(back, "Enter a valid email address.");
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) fail(back, "Enter a valid email address.");
   if (!ROLES.includes(role)) fail(back, "Pick a role.");
   if (role === "admin" && user.role !== "admin") fail(back, "Only admins can make someone an admin.");
 
@@ -170,11 +171,18 @@ export async function uploadRoster(formData: FormData) {
   if (!toSave.length) fail(back, "No employees found. The first row should have headers like Name, Email, Phone, Department, Role.");
 
   // Don't let a head pro's upload overwrite someone at another course or an admin.
-  const existing = await db.select().from(users).where(inArray(users.email, toSave.map((u) => u.email)));
+  const existing = await db.select().from(users).where(inArray(users.email, toSave.map((u) => u.email!)));
   const blocked = existing.filter((e) => user.role !== "admin" && (e.role === "admin" || (e.courseId && e.courseId !== courseId)));
   if (blocked.length) fail(back, `Nothing was saved. These people belong to another course: ${blocked.map((b) => b.email).join(", ")}`);
 
+  // People added from a schedule upload have no email yet: fill theirs in rather than adding a duplicate.
+  const noEmail = await db.select().from(users).where(and(eq(users.courseId, courseId), isNull(users.email)));
   for (const u of toSave) {
+    const match = existing.some((e) => e.email === u.email) ? undefined : noEmail.find((n) => nameKey(n.name) === nameKey(u.name));
+    if (match) {
+      await db.update(users).set({ ...u, active: true }).where(eq(users.id, match.id));
+      continue;
+    }
     await db
       .insert(users)
       .values(u)
@@ -184,30 +192,21 @@ export async function uploadRoster(formData: FormData) {
   done(back, `Saved ${toSave.length} employees.`);
 }
 
-export async function uploadSchedule(formData: FormData) {
-  const user = await requireAdmin();
-  const back = "/admin/upload";
-  const courseId = int(formData.get("courseId"));
-  assertCourse(user, courseId, back);
-  const replace = formData.get("replace") === "on";
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) fail(back, "Choose a spreadsheet to upload.");
+const nameKey = (n: string) => n.toLowerCase().replace(/[.,]/g, "").replace(/\s+/g, " ").trim();
+const errorList = (errors: string[]) =>
+  `Nothing was saved. Fix these and upload again: ${errors.slice(0, 5).join(" ")}${errors.length > 5 ? ` (+${errors.length - 5} more)` : ""}`;
 
-  let rows: Record<string, string>[];
-  try {
-    rows = await readSheet(file);
-  } catch (e) {
-    fail(back, (e as Error).message);
-  }
+type NewShift = typeof shifts.$inferInsert;
 
+/** One row per shift: Date, Employee, Department, Start, End, Note. */
+async function shiftsFromList(tab: Tab, courseId: number, back: string): Promise<NewShift[]> {
+  const rows = gridToRows(tab.grid);
   const findDept = await departmentsFor(courseId);
   const people = await db.select().from(users).where(eq(users.active, true));
-  const byEmail = new Map(people.map((p) => [p.email, p]));
-  const byName = new Map<string, User[]>();
-  for (const p of people) byName.set(p.name.toLowerCase(), [...(byName.get(p.name.toLowerCase()) ?? []), p]);
+  const byEmail = new Map(people.filter((p) => p.email).map((p) => [p.email!, p]));
 
   const errors: string[] = [];
-  const toInsert: (typeof shifts.$inferInsert)[] = [];
+  const out: NewShift[] = [];
   for (const r of rows) {
     const who = pick(r, "employee", "name", "email");
     const dateRaw = pick(r, "date", "day");
@@ -219,7 +218,7 @@ export async function uploadSchedule(formData: FormData) {
 
     let person = byEmail.get(normalizeEmail(who));
     if (!person) {
-      const matches = (byName.get(who.trim().toLowerCase()) ?? []).filter((p) => p.courseId === courseId);
+      const matches = people.filter((p) => p.courseId === courseId && nameKey(p.name) === nameKey(who));
       if (matches.length > 1) {
         errors.push(`Row ${r.__row}: two people are named “${who}”. Use their email instead.`);
         continue;
@@ -236,41 +235,166 @@ export async function uploadSchedule(formData: FormData) {
     else if (endRaw && !endTime) errors.push(`Row ${r.__row}: can't read the end time “${endRaw}”.`);
     else if (deptRaw && !dept) errors.push(`Row ${r.__row}: no department called “${deptRaw}”.`);
     else if (!departmentId) errors.push(`Row ${r.__row}: ${person.name} has no department here. Add a Department column.`);
-    else toInsert.push({ userId: person.id, departmentId, date, startTime, endTime, note: pick(r, "note", "notes") || null });
+    else out.push({ userId: person.id, departmentId, date, startTime, endTime, note: pick(r, "note", "notes") || null });
   }
-  if (errors.length) fail(back, `Nothing was saved. Fix these and upload again: ${errors.slice(0, 5).join(" ")}${errors.length > 5 ? ` (+${errors.length - 5} more)` : ""}`);
-  if (!toInsert.length) fail(back, "No shifts found. The first row should have headers like Date, Employee, Start, End.");
+  if (errors.length) fail(back, errorList(errors));
+  return out;
+}
+
+/**
+ * The course's own layout: names down the side, days across, a section per department.
+ * Departments and people that aren't on file yet are added (people without an email
+ * can't sign in until one is added on the Employees page).
+ */
+async function shiftsFromGrid(tabs: Tab[], courseId: number, back: string) {
+  const t = today();
+  const parsed = tabs.map((tab) => ({ tab, ...parseScheduleGrid(tab.grid, t) }));
+  const errors = parsed.flatMap((p) => p.errors.map((e) => (tabs.length > 1 ? `${p.tab.name}: ${e}` : e)));
+  if (errors.length) fail(back, errorList(errors));
+
+  // A workbook with a tab per week: post the weeks that haven't ended. If they all have, post them all.
+  const current = parsed.filter((p) => p.shifts.some((s) => s.date >= addDays(t, -6)));
+  const use = current.length ? current : parsed;
+  const gridShifts = use.flatMap((p) => p.shifts);
+  const gridPeople = use.flatMap((p) => p.people);
+  const requestedOff = use.reduce((n, p) => n + p.requestedOff, 0);
+
+  // Departments, by section title.
+  const findDept = await departmentsFor(courseId);
+  const deptBySection = new Map<string, number>();
+  const addedDepts: string[] = [];
+  for (const section of new Set(gridShifts.map((s) => s.section).concat(gridPeople.map((p) => p.section)))) {
+    let dept = findDept(section);
+    if (!dept) {
+      [dept] = await db.insert(departments).values({ courseId, name: section }).onConflictDoNothing().returning();
+      dept ??= (await departmentsFor(courseId))(section);
+      addedDepts.push(section);
+    }
+    deptBySection.set(section, dept!.id);
+  }
+
+  // People, matched by name within the course.
+  const existing = await db.select().from(users).where(eq(users.courseId, courseId));
+  const byName = new Map(existing.map((u) => [nameKey(u.name), u]));
+  let addedPeople = 0;
+  for (const p of gridPeople) {
+    const departmentId = deptBySection.get(p.section)!;
+    const found = byName.get(nameKey(p.name));
+    if (found) {
+      if ((!found.phone && p.phone) || !found.departmentId) {
+        await db
+          .update(users)
+          .set({ phone: found.phone ?? p.phone, departmentId: found.departmentId ?? departmentId })
+          .where(eq(users.id, found.id));
+      }
+      continue;
+    }
+    const [created] = await db.insert(users).values({ name: p.name, phone: p.phone, courseId, departmentId, role: "employee" }).returning();
+    byName.set(nameKey(p.name), created);
+    addedPeople++;
+  }
+
+  const out: NewShift[] = gridShifts.map((s) => ({
+    userId: byName.get(nameKey(s.name))!.id,
+    departmentId: deptBySection.get(s.section)!,
+    date: s.date,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    label: s.label,
+  }));
+  const extra = [
+    addedPeople ? `Added ${addedPeople} new ${addedPeople === 1 ? "person" : "people"} to the roster (add their emails on the Employees page so they can sign in).` : "",
+    addedDepts.length ? `Added departments: ${addedDepts.join(", ")}.` : "",
+    requestedOff ? `${requestedOff} “RO” days were skipped.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return { out, extra };
+}
+
+export async function uploadSchedule(formData: FormData) {
+  const user = await requireAdmin();
+  const back = "/admin/upload";
+  const courseId = int(formData.get("courseId"));
+  assertCourse(user, courseId, back);
+  const replace = formData.get("replace") === "on";
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) fail(back, "Choose a spreadsheet to upload.");
+
+  let tabs: Tab[];
+  try {
+    tabs = await readTabs(file);
+  } catch (e) {
+    fail(back, (e as Error).message);
+  }
+
+  let toInsert: NewShift[];
+  let extra = "";
+  const gridTabs = tabs.filter((t) => looksLikeGrid(t.grid));
+  if (gridTabs.length) {
+    ({ out: toInsert, extra } = await shiftsFromGrid(gridTabs, courseId, back));
+  } else {
+    toInsert = await shiftsFromList(tabs[0], courseId, back);
+  }
+  if (!toInsert.length) {
+    fail(back, "No shifts found. Upload your usual schedule sheet, or use the template (Date, Employee, Department, Start, End).");
+  }
 
   const dates = toInsert.map((s) => s.date).sort();
   const from = dates[0];
   const to = dates[dates.length - 1];
   const deptIds = [...new Set(toInsert.map((s) => s.departmentId))];
+  // Replace week by week, so two weeks far apart never wipe out the weeks between them.
+  const weeks = new Map<string, { from: string; to: string }>();
+  for (const d of dates) {
+    const w = weeks.get(weekStart(d));
+    weeks.set(weekStart(d), { from: w?.from ?? d, to: d });
+  }
   let replaced = 0;
   await db.transaction(async (tx) => {
     if (replace) {
-      const del = await tx
-        .delete(shifts)
-        .where(and(inArray(shifts.departmentId, deptIds), gte(shifts.date, from), lte(shifts.date, to)))
-        .returning({ id: shifts.id });
-      replaced = del.length;
+      for (const w of weeks.values()) {
+        const del = await tx
+          .delete(shifts)
+          .where(and(inArray(shifts.departmentId, deptIds), gte(shifts.date, w.from), lte(shifts.date, w.to)))
+          .returning({ id: shifts.id });
+        replaced += del.length;
+      }
     }
     await tx.insert(shifts).values(toInsert);
   });
+
+  let emailed = 0;
   if (formData.get("notify") === "on") {
     const ids = [...new Set(toInsert.map((s) => s.userId))];
-    for (const id of ids) {
-      const p = people.find((x) => x.id === id)!;
-      const mine = toInsert.filter((s) => s.userId === id).sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
+    const people = await db.select().from(users).where(inArray(users.id, ids));
+    for (const p of people) {
+      if (!p.email || !p.active) continue;
+      const mine = toInsert
+        .filter((s) => s.userId === p.id)
+        .sort((a, b) => (a.date + (a.startTime ?? "")).localeCompare(b.date + (b.startTime ?? "")));
       await sendEmail({
         to: p.email,
         subject: `Your shifts: ${formatDate(from)} – ${formatDate(to)}`,
         text:
           `Hi ${p.name.split(" ")[0]},\n\nThe schedule is posted. You're working:\n\n` +
-          mine.map((s) => `  • ${formatDate(s.date)}  ${formatShiftTime(s.startTime, s.endTime ?? null)}`).join("\n") +
+          mine.map((s) => `  • ${formatDate(s.date)}  ${formatShiftTime(s.startTime ?? null, s.endTime ?? null, s.label)}`).join("\n") +
           `\n\nNeed a day off or a swap? ${appUrl("/")}`,
       });
+      emailed++;
     }
   }
+
   revalidatePath("/", "layout");
-  done(back, `Posted ${toInsert.length} shifts for ${from} to ${to}.${replace && replaced ? ` Replaced ${replaced} old shifts.` : ""}`);
+  done(
+    back,
+    [
+      `Posted ${toInsert.length} shifts for ${formatDate(from)} – ${formatDate(to, { year: true })}.`,
+      replace && replaced ? `Replaced ${replaced} old shifts.` : "",
+      extra,
+      emailed ? `Emailed ${emailed} people their shifts.` : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
 }

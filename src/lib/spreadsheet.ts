@@ -1,31 +1,55 @@
 import ExcelJS from "exceljs";
 
+type UploadedFile = { name: string; arrayBuffer(): Promise<ArrayBuffer> };
+export type Tab = { name: string; grid: string[][] };
+
 /**
  * Reads the first sheet of an .xlsx or .csv file into rows of plain strings,
  * keyed by lower-cased header. Dates become YYYY-MM-DD, times become HH:MM.
  */
-export async function readSheet(file: { name: string; arrayBuffer(): Promise<ArrayBuffer> }) {
+export async function readSheet(file: UploadedFile) {
+  return gridToRows((await readTabs(file))[0].grid);
+}
+
+/** Every non-empty tab as a grid of strings, with blank rows dropped. */
+export async function readTabs(file: UploadedFile): Promise<Tab[]> {
   const buf = await file.arrayBuffer();
-  const name = file.name.toLowerCase();
-  let grid: string[][];
-  if (name.endsWith(".csv")) {
-    grid = parseCsv(new TextDecoder().decode(buf));
-  } else if (name.endsWith(".xlsx")) {
+  const lower = file.name.toLowerCase();
+  let tabs: Tab[];
+  if (lower.endsWith(".csv")) {
+    tabs = [{ name: file.name, grid: parseCsv(new TextDecoder().decode(buf)) }];
+  } else if (lower.endsWith(".xlsx")) {
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buf);
-    const ws = wb.worksheets[0];
-    if (!ws) throw new Error("The spreadsheet has no sheets.");
-    grid = [];
-    ws.eachRow({ includeEmpty: false }, (row) => {
-      const cells: string[] = [];
-      for (let c = 1; c <= ws.columnCount; c++) cells.push(cellToString(row.getCell(c).value));
-      grid.push(cells);
-    });
+    try {
+      await wb.xlsx.load(buf);
+    } catch {
+      throw new Error("Couldn't open that file. If it's an older .xls file, open it in Excel and save it as .xlsx.");
+    }
+    tabs = wb.worksheets
+      .filter((ws) => ws.state === "visible")
+      .map((ws) => {
+        const grid: string[][] = [];
+        ws.eachRow({ includeEmpty: false }, (row) => {
+          const cells: string[] = [];
+          for (let c = 1; c <= ws.columnCount; c++) cells.push(cellToString(row.getCell(c).value));
+          grid.push(cells);
+        });
+        return { name: ws.name, grid };
+      });
+  } else if (lower.endsWith(".xls")) {
+    throw new Error("That's an older .xls file. Open it in Excel and choose File → Save As → .xlsx, then upload that.");
   } else {
     throw new Error("Please upload an .xlsx or .csv file.");
   }
-  grid = grid.filter((r) => r.some((c) => c.trim() !== ""));
-  if (grid.length === 0) throw new Error("The spreadsheet is empty.");
+  tabs = tabs
+    .map((t) => ({ ...t, grid: t.grid.filter((r) => r.some((c) => c.trim() !== "")) }))
+    .filter((t) => t.grid.length > 0);
+  if (tabs.length === 0) throw new Error("The spreadsheet is empty.");
+  return tabs;
+}
+
+/** Rows keyed by lower-cased header from the first row. */
+export function gridToRows(grid: string[][]) {
   const headers = grid[0].map((h) => h.trim().toLowerCase());
   return grid.slice(1).map((r, i) => {
     const obj: Record<string, string> = { __row: String(i + 2) };

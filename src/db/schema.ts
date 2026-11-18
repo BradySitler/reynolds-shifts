@@ -64,7 +64,8 @@ export const users = pgTable(
   {
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
-    email: text("email").notNull(),
+    /** Needed to sign in. People added from a schedule upload may not have one yet. */
+    email: text("email"),
     phone: text("phone"),
     role: roleEnum("role").notNull().default("employee"),
     courseId: integer("course_id").references(() => courses.id, { onDelete: "set null" }),
@@ -88,8 +89,11 @@ export const shifts = pgTable(
       .notNull()
       .references(() => departments.id, { onDelete: "cascade" }),
     date: date("date").notNull(),
-    startTime: time("start_time").notNull(),
+    /** Null for shifts with no set time, like a pro's "Open" or "Close". */
+    startTime: time("start_time"),
     endTime: time("end_time"),
+    /** Shift label from the sheet: "EOE" (end of event), "CL" (close), "Open", "Close", "Here". */
+    label: text("label"),
     note: text("note"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },

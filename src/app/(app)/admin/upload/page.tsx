@@ -33,9 +33,21 @@ export default async function UploadPage({ searchParams }: { searchParams: Searc
       <form action={uploadSchedule} className="card space-y-4">
         <h2 className="h2">Post the schedule</h2>
         <p className="muted">
-          One row per shift with columns <strong>Date</strong>, <strong>Employee</strong> (name or email), <strong>Department</strong>, <strong>Start</strong>, <strong>End</strong>, and an optional <strong>Note</strong>.{" "}
-          <a href="/admin/upload/template?kind=schedule" className="font-medium text-brand underline">Download a template</a>.
+          Upload the same Excel file you email out now (saved as <strong>.xlsx</strong>): names down the side, Thursday through Wednesday across the top, and a section for each department. If the file has a tab for every week, the weeks that haven&apos;t ended yet are posted. People and departments that aren&apos;t on file yet are added for you.
         </p>
+        <details className="muted">
+          <summary className="cursor-pointer font-medium text-stone-700">What the codes mean</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li><strong>6:00-2:00</strong> is 6 AM to 2 PM. <strong>7:30-EOE</strong> runs to end of event, <strong>12:00-CL</strong> to close.</li>
+            <li>Words like <strong>Open</strong>, <strong>Close</strong> or <strong>Here</strong> show as written.</li>
+            <li><strong>*</strong>, <strong>RO</strong> and blank cells mean not working.</li>
+            <li>Rows above the first department (events, player counts) are skipped.</li>
+          </ul>
+          <p className="mt-2">
+            You can also upload a simple list with one row per shift (Date, Employee, Department, Start, End).{" "}
+            <a href="/admin/upload/template?kind=schedule" className="font-medium text-brand underline">Download that template</a>.
+          </p>
+        </details>
         {coursePicker}
         <input type="file" name="file" accept=".xlsx,.csv" required className="input py-2" aria-label="Schedule spreadsheet" />
         <label className="flex items-start gap-2">

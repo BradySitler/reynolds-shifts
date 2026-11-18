@@ -43,6 +43,7 @@ export function upcomingShifts(userId: number, limit = 14) {
       id: shifts.id,
       date: shifts.date,
       startTime: shifts.startTime,
+      label: shifts.label,
       endTime: shifts.endTime,
       note: shifts.note,
       department: departments.name,
@@ -73,14 +74,16 @@ export type SwapRow = {
   coworkerName: string;
   shiftId: number;
   shiftDate: string;
-  shiftStart: string;
+  shiftStart: string | null;
   shiftEnd: string | null;
+  shiftLabel: string | null;
   departmentId: number;
   department: string;
   course: string;
   tradeDate: string | null;
   tradeStart: string | null;
   tradeEnd: string | null;
+  tradeLabel: string | null;
 };
 
 export function listSwaps(where: SQL | undefined, order: SQL[], limit = 200): Promise<SwapRow[]> {
@@ -100,11 +103,13 @@ export function listSwaps(where: SQL | undefined, order: SQL[], limit = 200): Pr
       shiftDate: shifts.date,
       shiftStart: shifts.startTime,
       shiftEnd: shifts.endTime,
+      shiftLabel: shifts.label,
       departmentId: shifts.departmentId,
       department: departments.name,
       course: courses.name,
       tradeDate: coworkerShift.date,
       tradeStart: coworkerShift.startTime,
+      tradeLabel: coworkerShift.label,
       tradeEnd: coworkerShift.endTime,
     })
     .from(swapRequests)

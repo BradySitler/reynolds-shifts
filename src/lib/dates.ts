@@ -22,10 +22,13 @@ export function addDays(d: string, n: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
-/** Monday of the week containing d. */
+/** Day the schedule week starts on (0 = Sunday … 4 = Thursday). Reynolds sheets run Thursday to Wednesday. */
+export const WEEK_START_DAY = Number(process.env.NEXT_PUBLIC_WEEK_START_DAY ?? 4);
+
+/** First day of the schedule week containing d. */
 export function weekStart(d: string): string {
   const dow = parse(d).getUTCDay(); // 0 = Sun
-  return addDays(d, dow === 0 ? -6 : 1 - dow);
+  return addDays(d, -((dow - WEEK_START_DAY + 7) % 7));
 }
 
 export function formatDate(d: string, opts: { year?: boolean } = {}): string {
@@ -50,8 +53,18 @@ export function formatTime(t: string | null | undefined): string {
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
-export function formatShiftTime(start: string, end: string | null): string {
-  return end ? `${formatTime(start)} – ${formatTime(end)}` : `${formatTime(start)} start`;
+const LABELS: Record<string, string> = { EOE: "End of event", CL: "Close" };
+export function labelText(label: string | null | undefined): string {
+  if (!label) return "";
+  return LABELS[label.toUpperCase()] ?? label;
+}
+
+/** "6:00 AM – 2:00 PM", "7:30 AM – End of event", or just "Open". */
+export function formatShiftTime(start: string | null, end: string | null, label?: string | null): string {
+  if (!start) return labelText(label) || "Scheduled";
+  if (end) return `${formatTime(start)} – ${formatTime(end)}`;
+  if (label) return `${formatTime(start)} – ${labelText(label)}`;
+  return `${formatTime(start)} start`;
 }
 
 export function isIsoDate(s: string): boolean {

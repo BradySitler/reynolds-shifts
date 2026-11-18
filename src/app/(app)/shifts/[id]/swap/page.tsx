@@ -52,7 +52,7 @@ export default async function SwapPage({ params, searchParams }: { params: Promi
       <div className="card">
         <p className="muted">Your shift</p>
         <p className="text-lg font-semibold">{formatDate(shift.date)}</p>
-        <p>{formatShiftTime(shift.startTime, shift.endTime)} · {dept?.name}</p>
+        <p>{formatShiftTime(shift.startTime, shift.endTime, shift.label)} · {dept?.name}</p>
       </div>
 
       <form method="get" className="card space-y-3">
@@ -84,7 +84,7 @@ export default async function SwapPage({ params, searchParams }: { params: Promi
               <label key={s.id} className="flex min-h-11 items-center gap-3 rounded-lg border border-stone-200 p-3">
                 <input type="radio" name="coworkerShiftId" value={s.id} className="h-5 w-5 accent-brand" />
                 <span>
-                  Trade for <strong>{formatDate(s.date)}</strong> · {formatShiftTime(s.startTime, s.endTime)}
+                  Trade for <strong>{formatDate(s.date)}</strong> · {formatShiftTime(s.startTime, s.endTime, s.label)}
                   <span className="muted"> · {s.department}</span>
                 </span>
               </label>

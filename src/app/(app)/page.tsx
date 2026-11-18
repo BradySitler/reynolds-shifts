@@ -81,7 +81,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
               <li key={s.id} className="flex items-center justify-between gap-3 p-4">
                 <div>
                   <p className="font-semibold">{formatDate(s.date)}</p>
-                  <p className="text-sm">{formatShiftTime(s.startTime, s.endTime)}</p>
+                  <p className="text-sm">{formatShiftTime(s.startTime, s.endTime, s.label)}</p>
                   <p className="muted">
                     {s.department} · {s.course}
                     {s.note ? ` · ${s.note}` : ""}

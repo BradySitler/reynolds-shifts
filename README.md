@@ -20,10 +20,13 @@ Everyone signs in with a link emailed to them. There are no passwords.
 
 ## Spreadsheets
 
-Download templates from **Manage → Upload**.
+Upload from **Manage → Upload**.
 
-- **Schedule:** one row per shift. Columns `Date`, `Employee` (name or email), `Department`, `Start`, `End`, optional `Note`. Dates like `11/22/2026` and times like `6:30 AM` work. If any row has a problem, nothing is saved and the page lists what to fix.
-- **Roster:** columns `Name`, `Email`, `Phone`, `Department`, `Role`. Existing people are updated by email.
+- **Schedule (the course's usual sheet):** names down the side, Thursday–Wednesday across the top with dates like `May 1` under the day names, and a section row for each department (Golf Professionals, Cart Attendants, …). Codes: `6:00-2:00` (6 AM–2 PM), `7:30-EOE` (to end of event), `12:00-CL` (to close), words like `Open`/`Close`/`Here` as written, and `*`, `RO` or blank for not working. Rows above the first section (events, player counts) are skipped. In a workbook with a tab per week, only weeks that haven't ended are posted. Unknown people and departments are added automatically; people added this way have no email until one is entered on the Employees page.
+- **Schedule (simple list):** one row per shift with `Date`, `Employee` (name or email), `Department`, `Start`, `End`, optional `Note`.
+- **Roster:** columns `Name`, `Email`, `Phone`, `Department`, `Role`. Existing people are updated by email, and people added from a schedule upload get their email filled in by name.
+
+If anything in a file can't be read, nothing is saved and the page lists what to fix. Re-uploading replaces that week's shifts for the departments in the file.
 
 ## Stack
 
@@ -62,3 +65,4 @@ Without `RESEND_API_KEY`, emails print to the terminal and the login page shows 
 | `RESEND_API_KEY` | Sends email. Without it, emails are logged instead |
 | `EMAIL_FROM` | Sender address (domain must be verified in Resend) |
 | `APP_TIME_ZONE` | Defaults to `America/New_York` |
+| `NEXT_PUBLIC_WEEK_START_DAY` | First day of the schedule week, 0 = Sunday. Defaults to 4 (Thursday) |

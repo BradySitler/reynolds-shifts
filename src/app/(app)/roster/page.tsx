@@ -65,7 +65,7 @@ export default async function RosterPage({ searchParams }: { searchParams: Searc
               </div>
               <div className="flex flex-wrap gap-x-4 text-sm">
                 {p.phone && <a href={`tel:${p.phone}`} className="font-medium text-brand">📞 {p.phone}</a>}
-                <a href={`mailto:${p.email}`} className="font-medium text-brand break-all">✉️ {p.email}</a>
+                {p.email && <a href={`mailto:${p.email}`} className="font-medium text-brand break-all">✉️ {p.email}</a>}
               </div>
             </li>
           ))}

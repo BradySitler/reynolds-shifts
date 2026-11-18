@@ -25,7 +25,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Sea
   if (deptId) where.push(eq(shifts.departmentId, deptId));
 
   const rows = await db
-    .select({ id: shifts.id, date: shifts.date, startTime: shifts.startTime, endTime: shifts.endTime, note: shifts.note, userId: users.id, name: users.name, department: departments.name })
+    .select({ id: shifts.id, date: shifts.date, startTime: shifts.startTime, endTime: shifts.endTime, label: shifts.label, note: shifts.note, userId: users.id, name: users.name, department: departments.name })
     .from(shifts)
     .innerJoin(users, eq(users.id, shifts.userId))
     .innerJoin(departments, eq(departments.id, shifts.departmentId))
@@ -81,7 +81,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Sea
                 {dayShifts.map((s) => (
                   <li key={s.id} className={`flex justify-between gap-2 rounded px-2 py-1 text-sm ${s.userId === user.id ? "bg-brand-soft font-semibold" : ""}`}>
                     <span>{s.name}{!deptId && <span className="muted font-normal"> · {s.department}</span>}</span>
-                    <span className="shrink-0 text-stone-600">{formatShiftTime(s.startTime, s.endTime)}</span>
+                    <span className="shrink-0 text-stone-600">{formatShiftTime(s.startTime, s.endTime, s.label)}</span>
                   </li>
                 ))}
               </ul>

@@ -46,7 +46,8 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Se
         </div>
         <div>
           <label className="label" htmlFor="email">Email</label>
-          <input id="email" name="email" type="email" required defaultValue={editing?.email} className="input" />
+          <input id="email" name="email" type="email" defaultValue={editing?.email ?? ""} className="input" />
+          <p className="muted mt-1">Needed to sign in and get emails.</p>
         </div>
         <div>
           <label className="label" htmlFor="phone">Phone</label>
@@ -89,7 +90,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Se
           <li key={u.id} className={`flex items-center justify-between gap-3 p-3 ${u.active ? "" : "opacity-50"}`}>
             <div className="min-w-0">
               <p className="font-semibold">{u.name} {!u.active && <span className="text-xs font-normal">(inactive)</span>}</p>
-              <p className="muted truncate">{roleLabels[u.role]} · {[department, course].filter(Boolean).join(", ") || "No department"} · {u.email}</p>
+              <p className="muted truncate">{roleLabels[u.role]} · {[department, course].filter(Boolean).join(", ") || "No department"} · {u.email ?? <span className="text-amber-700">no email yet</span>}</p>
             </div>
             <Link href={`/admin/employees?edit=${u.id}`} className="btn-secondary shrink-0">Edit</Link>
           </li>

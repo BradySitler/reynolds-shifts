@@ -15,12 +15,12 @@ export function SwapSummary({ s, viewerId }: { s: SwapRow; viewerId?: number }) 
         <StatusBadge status={s.status} />
       </div>
       <p className="text-sm">
-        <span className="font-medium">{formatDate(s.shiftDate)}</span> · {formatShiftTime(s.shiftStart, s.shiftEnd)}
+        <span className="font-medium">{formatDate(s.shiftDate)}</span> · {formatShiftTime(s.shiftStart, s.shiftEnd, s.shiftLabel)}
         <span className="muted"> · {s.department}, {s.course}</span>
       </p>
       {s.tradeDate && (
         <p className="text-sm">
-          In trade for <span className="font-medium">{formatDate(s.tradeDate)}</span> · {formatShiftTime(s.tradeStart!, s.tradeEnd)}
+          In trade for <span className="font-medium">{formatDate(s.tradeDate)}</span> · {formatShiftTime(s.tradeStart, s.tradeEnd, s.tradeLabel)}
         </p>
       )}
       {s.message && <p className="text-sm italic text-stone-600">&ldquo;{s.message}&rdquo;</p>}
