@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "create-admin": "tsx scripts/create-admin.ts",
+    "test": "tsx --test src/lib/*.test.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
