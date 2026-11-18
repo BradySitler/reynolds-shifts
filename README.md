@@ -44,7 +44,7 @@ npm run seed:demo        # demo course, 18 people, two weeks of shifts
 npm run dev
 ```
 
-Without `RESEND_API_KEY`, emails print to the terminal and the login page shows a "test mode" sign-in button. Demo logins: `admin.user@example.com`, `carter.assistant@example.com`, `avery.lane@example.com`.
+Without email settings, emails print to the terminal and the login page shows a "test mode" sign-in button. Demo logins: `admin.user@example.com`, `carter.assistant@example.com`, `avery.lane@example.com`.
 
 `npm test` runs the unit tests.
 
@@ -52,7 +52,7 @@ Without `RESEND_API_KEY`, emails print to the terminal and the login page shows 
 
 1. Import the repo into Vercel.
 2. Add a Neon Postgres database from the Vercel Marketplace (it sets `DATABASE_URL`).
-3. Set environment variables: `APP_URL` (the site's URL), `RESEND_API_KEY`, and `EMAIL_FROM` (an address on a domain verified in Resend, such as `Reynolds Shifts <shifts@yourdomain.com>`).
+3. Set environment variables for email: `GMAIL_USER` and `GMAIL_APP_PASSWORD` (turn on 2-Step Verification for the Gmail account, then create an app password at myaccount.google.com/apppasswords). Gmail allows about 500 emails a day.
 4. Nothing to set for the build: the `vercel-build` script runs database migrations before each build (and skips them until a database is connected).
 5. Set `ADMIN_EMAILS` to your email (comma-separated for more than one). The first time that address signs in, it becomes an admin. Then add the course and upload the schedule. (`npm run create-admin` does the same from a terminal.)
 
@@ -63,7 +63,9 @@ Without `RESEND_API_KEY`, emails print to the terminal and the login page shows 
 | `DATABASE_URL` | Postgres connection string |
 | `APP_URL` | Public URL, used in email links. Defaults to the Vercel production URL |
 | `ADMIN_EMAILS` | Addresses that become admins on their first sign-in |
-| `RESEND_API_KEY` | Sends email. Without it, emails are logged instead |
-| `EMAIL_FROM` | Sender address (domain must be verified in Resend) |
+| `GMAIL_USER` | Gmail address the site sends from |
+| `GMAIL_APP_PASSWORD` | A Google app password for that account (not its normal password) |
+| `EMAIL_FROM_NAME` | Sender name shown in inboxes. Defaults to "Reynolds Shifts" |
+| `RESEND_API_KEY` / `EMAIL_FROM` | Alternative to Gmail: send through Resend from a verified domain |
 | `APP_TIME_ZONE` | Defaults to `America/New_York` |
 | `NEXT_PUBLIC_WEEK_START_DAY` | First day of the schedule week, 0 = Sunday. Defaults to 4 (Thursday) |
